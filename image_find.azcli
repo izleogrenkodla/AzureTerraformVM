@@ -1,0 +1,5 @@
+az vm image list-offers --location francecentral --publisher Canonical --output table
+
+az vm image list-skus --location francecentral --publisher Canonical --offer 0001-com-ubuntu-server-focal --output table
+
+az vm show --resource-group QuickTerraformTest-rg --name myVM -d --query [publicIps] -o tsv

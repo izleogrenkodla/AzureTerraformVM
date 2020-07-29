@@ -117,5 +117,74 @@ resource "azurerm_network_interface_security_group_association" "example" {
     network_security_group_id = azurerm_network_security_group.myterraformnsg.id
 }
 
+# Create Storage account for diagnostic
+resource "random_id" "randomId" {
+    keepers = {
+        # Generate a new ID only when a new resource group is defined
+        resource_group = azurerm_resource_group.myterraformgroup.name
+    }
+    
+    byte_length = 8
+}
+
+resource "azurerm_storage_account" "mystorageaccount" {
+    name                        = "diag${random_id.randomId.hex}"
+    resource_group_name         = azurerm_resource_group.myterraformgroup.name
+    location                    = "francecentral"
+    account_replication_type    = "LRS"
+    account_tier                = "Standard"
+
+    tags = {
+        environment = "Terraform Demo"
+    }
+}
 
 
+# Create Virtual Machine
+resource "tls_private_key" "example_ssh" {
+  algorithm = "RSA"
+  rsa_bits = 4096
+}
+
+output "tls_private_key" { value = "tls_private_key.example_ssh.private_key_pem" }
+
+resource "azurerm_linux_virtual_machine" "myterraformvm" {
+    name                  = "myVM"
+    location              = "francecentral"
+    resource_group_name   = azurerm_resource_group.myterraformgroup.name
+    network_interface_ids = [azurerm_network_interface.myterraformnic.id]
+    size                  = "Standard_DS1_v2"
+
+    os_disk {
+        name              = "myOsDisk"
+        caching           = "ReadWrite"
+        storage_account_type = "Premium_LRS"
+    }
+
+    source_image_reference {
+        publisher = "Canonical"
+        offer     = "0001-com-ubuntu-server-focal"
+        sku       = "20_04-lts"
+        version   = "latest"
+    }
+
+    computer_name  = "myvm"
+    admin_username = "azureuser"
+    admin_password = "MyAdminPassword30+"
+    disable_password_authentication = false
+            
+    admin_ssh_key {
+        username       = "azureuser"
+        public_key     = tls_private_key.example_ssh.public_key_openssh
+        }
+
+    boot_diagnostics {
+        storage_account_uri = azurerm_storage_account.mystorageaccount.primary_blob_endpoint
+    }
+
+    tags = {
+        environment = "Terraform Demo"
+    }
+
+    
+}
