@@ -31,7 +31,7 @@ resource "azurerm_public_ip" "myterraformpublicip" {
     name                         = "myPublicIP"
     location                     = "francecentral"
     resource_group_name          = azurerm_resource_group.myterraformgroup.name
-    allocation_method            = "Dynamic"
+    allocation_method            = "Static"
 
     tags = {
         environment = "Terraform Demo"
@@ -153,7 +153,7 @@ resource "azurerm_linux_virtual_machine" "myterraformvm" {
     location              = "francecentral"
     resource_group_name   = azurerm_resource_group.myterraformgroup.name
     network_interface_ids = [azurerm_network_interface.myterraformnic.id]
-    size                  = "Standard_DS1_v2"
+    size                  = "Standard_B2ms"
 
     os_disk {
         name              = "myOsDisk"
@@ -169,12 +169,12 @@ resource "azurerm_linux_virtual_machine" "myterraformvm" {
     }
 
     computer_name  = "myvm"
-    admin_username = "azureuser"
-    admin_password = "MyAdminPassword30+"
+    admin_username = var.user
+    admin_password = var.password
     disable_password_authentication = false
             
     admin_ssh_key {
-        username       = "azureuser"
+        username       = var.user
         public_key     = tls_private_key.example_ssh.public_key_openssh
         }
 
@@ -186,5 +186,22 @@ resource "azurerm_linux_virtual_machine" "myterraformvm" {
         environment = "Terraform Demo"
     }
 
-    
+    provisioner "remote-exec" {
+        connection {
+            type = "ssh"
+            host = azurerm_public_ip.myterraformpublicip.ip_address
+            user = var.user
+            password = var.password  
+            # private_key = "tls_private_key.example_ssh.private_key_pem"
+            timeout = "2m"
+        }
+
+        inline = [
+            "export PATH=$PATH:/usr/bin",
+            # install nginx
+            "sudo apt-get update",
+            "sudo apt-get -y install nginx"
+    ]
+  }
+
 }
